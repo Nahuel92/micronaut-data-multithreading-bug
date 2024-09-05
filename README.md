@@ -1,46 +1,15 @@
-## Micronaut 4.6.0 Documentation
+### Description
 
-- [User Guide](https://docs.micronaut.io/4.6.0/guide/index.html)
-- [API Reference](https://docs.micronaut.io/4.6.0/api/index.html)
-- [Configuration Reference](https://docs.micronaut.io/4.6.0/guide/configurationreference.html)
-- [Micronaut Guides](https://guides.micronaut.io/index.html)
----
+When a DataSource is set as read-only,
 
-- [Micronaut Maven Plugin documentation](https://micronaut-projects.github.io/micronaut-maven-plugin/latest/)
-## Feature jdbc-hikari documentation
+### Expected behavior
 
-- [Micronaut Hikari JDBC Connection Pool documentation](https://micronaut-projects.github.io/micronaut-sql/latest/guide/index.html#jdbc)
+> [!NOTE]
+> My understanding is that a DataSource is created at app startup and shared among all app's threads.
+ 
+Read-only behavior should be honored, even if repository code runs in another thread.
 
+### How to test?
 
-## Feature maven-enforcer-plugin documentation
-
-- [https://maven.apache.org/enforcer/maven-enforcer-plugin/](https://maven.apache.org/enforcer/maven-enforcer-plugin/)
-
-
-## Feature micronaut-aot documentation
-
-- [Micronaut AOT documentation](https://micronaut-projects.github.io/micronaut-aot/latest/guide/)
-
-
-## Feature serialization-jackson documentation
-
-- [Micronaut Serialization Jackson Core documentation](https://micronaut-projects.github.io/micronaut-serialization/latest/guide/)
-
-
-## Feature liquibase documentation
-
-- [Micronaut Liquibase Database Migration documentation](https://micronaut-projects.github.io/micronaut-liquibase/latest/guide/index.html)
-
-- [https://www.liquibase.org/](https://www.liquibase.org/)
-
-
-## Feature data-jdbc documentation
-
-- [Micronaut Data JDBC documentation](https://micronaut-projects.github.io/micronaut-data/latest/guide/index.html#jdbc)
-
-
-## Feature test-resources documentation
-
-- [Micronaut Test Resources documentation](https://micronaut-projects.github.io/micronaut-test-resources/latest/guide/)
-
-
+Simply run tests in the `MicronautMultiThreadingBugTest` class. I also added logs around the repository's methods to
+make the issue more evident.

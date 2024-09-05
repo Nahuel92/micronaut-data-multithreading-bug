@@ -1,6 +1,5 @@
 package io.github.nahuel92;
 
-import io.micronaut.core.annotation.NonNull;
 import io.micronaut.data.exceptions.DataAccessException;
 import io.micronaut.test.annotation.Sql;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
@@ -30,7 +29,7 @@ import static org.awaitility.Awaitility.await;
 @MicronautTest
 @Testcontainers(disabledWithoutDocker = true)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-class MicronautDataBugTest implements TestPropertyProvider {
+class MicronautMultiThreadingBugTest implements TestPropertyProvider {
     @Container
     private static final PostgreSQLContainer<?> container = new PostgreSQLContainer<>(DockerImageName.parse("postgres"));
 
@@ -55,6 +54,21 @@ class MicronautDataBugTest implements TestPropertyProvider {
     }
 
     @Test
+    @DisplayName("When Datasource is set as read only, write transactions should fail")
+    void failureOnExecutingTransactionWhenDatasourceIsSetAsReadOnlyAndCodeRunsInSameThread() throws SQLException {
+        // given
+        assumeThat(dataSource.getConnection().isReadOnly())
+                .as("Datasource is correctly set as read only by TxReadOnlyEnforcer")
+                .isTrue();
+        // and
+        final var myEntity = new MyEntity(null, "Morty");
+
+        // expect
+        assertThatCode(() -> myService.doSomeWorkOnSameThread(myEntity))
+                .isInstanceOf(DataAccessException.class);
+    }
+
+    @Test
     @DisplayName("When Datasource is set as read only, write transactions should fail even if run on another thread")
     void failureOnExecutingTransactionWhenDatasourceIsSetAsReadOnlyAndCodeRunsInAnotherThread() throws SQLException {
         // given
@@ -66,23 +80,8 @@ class MicronautDataBugTest implements TestPropertyProvider {
 
         // expect
         await().atMost(1, TimeUnit.SECONDS)
-                .untilAsserted(() -> assertThatCode(() -> myService.doSomeWorkInParallel(myEntity))
+                .untilAsserted(() -> assertThatCode(() -> myService.doSomeWorkInAnotherThread(myEntity))
                         .isInstanceOf(DataAccessException.class)
                 );
-    }
-
-    @Test
-    @DisplayName("When Datasource is set as read only, write transactions should fail")
-    void failureOnExecutingTransactionWhenDatasourceIsSetAsReadOnlyAndCodeRunsInSameThread() throws SQLException {
-        // given
-        assumeThat(dataSource.getConnection().isReadOnly())
-                .as("Datasource is correctly set as read only by TxReadOnlyEnforcer")
-                .isTrue();
-        // and
-        final var myEntity = new MyEntity(null, "Morty");
-
-        // expect
-        assertThatCode(() -> myService.doSomeWork(myEntity))
-                .isInstanceOf(DataAccessException.class);
     }
 }
