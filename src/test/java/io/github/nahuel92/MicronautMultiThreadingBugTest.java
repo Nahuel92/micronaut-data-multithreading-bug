@@ -12,12 +12,11 @@ import org.testcontainers.containers.PostgreSQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
-
 import javax.sql.DataSource;
 import java.sql.SQLException;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assumptions.assumeThat;
 import static org.awaitility.Awaitility.await;
@@ -31,10 +30,14 @@ import static org.awaitility.Awaitility.await;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class MicronautMultiThreadingBugTest implements TestPropertyProvider {
     @Container
-    private static final PostgreSQLContainer<?> container = new PostgreSQLContainer<>(DockerImageName.parse("postgres"));
+    private static final PostgreSQLContainer<?> container = new PostgreSQLContainer<>(
+            DockerImageName.parse("postgres"));
 
     @Inject
     private MyService myService;
+
+    @Inject
+    private MyRepo myRepo;
 
     @Inject
     private DataSource dataSource;
@@ -82,6 +85,26 @@ class MicronautMultiThreadingBugTest implements TestPropertyProvider {
         await().atMost(1, TimeUnit.SECONDS)
                 .untilAsserted(() -> assertThatCode(() -> myService.doSomeWorkInAnotherThread(myEntity))
                         .isInstanceOf(DataAccessException.class)
+                );
+    }
+
+    @Test
+    @DisplayName(
+            "When Datasource is set as read only, write transactions run on another thread are successfully committed")
+    void successOnPersistingDataEvenIfTheDatasourceIsSetAsReadOnly() throws SQLException {
+        // given
+        assumeThat(dataSource.getConnection().isReadOnly())
+                .as("Datasource is correctly set as read only by TxReadOnlyEnforcer")
+                .isTrue();
+        // and
+        final var myEntity = new MyEntity(null, "Morty");
+
+        // expect
+        await().atMost(1, TimeUnit.SECONDS)
+                .untilAsserted(() -> {
+                            myService.doSomeWorkInAnotherThread(myEntity);
+                            assertThat(myRepo.findById(1)).isPresent();
+                        }
                 );
     }
 }
